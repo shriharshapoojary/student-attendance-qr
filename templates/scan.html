@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            background: #f9f9f9;
+        }
+        
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+        
+        input:disabled {
+            background: #f0f0f0;
+            color: #999;
+            cursor: not-allowed;
+        }
+        
+        .location-info {
+            background: #f0f7ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            font-size: 14px;
+        }
+        
+        .location-info.loading {
+            color: #666;
+        }
+        
+        .location-info.success {
+            color: #0a6;
+        }
+        
+        .location-info.error {
+            color: #c33;
+            background: #fee;
+            border-left-color: #c33;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .success-message {
+            background: #efe;
+            color: #0a6;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0a6;
+            text-align: center;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Mark Attendance</h1>
+        
+        {% if error %}
+            <div class="error">{{ error }}</div>
+            <div class="back-link">
+                <a href="/">← Go Back Home</a>
+            </div>
+        {% else %}
+            <div id="successMessage" class="success-message" style="display: none;">
+                ✓ Attendance marked successfully!
+            </div>
+            
+            <form id="attendanceForm" onsubmit="submitAttendance(event)">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="name" value="{{ student.name }}" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label>Roll Number</label>
+                    <input type="text" id="rollNumber" value="{{ student.roll_number }}" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label>Branch</label>
+                    <input type="text" id="branch" value="{{ student.branch }}" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label>Class</label>
+                    <input type="text" id="class" value="{{ student.class }}" disabled>
+                </div>
+                
+                <div class="location-info loading" id="locationInfo">
+                    📍 Detecting your location...
+                </div>
+                
+                <input type="hidden" id="latitude">
+                <input type="hidden" id="longitude">
+                <input type="hidden" id="studentId" value="{{ student.student_id }}">
+                
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    Submit Attendance
+                </button>
+            </form>
+            
+            <div class="back-link">
+                <a href="/">← Go Back Home</a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        // Capture geolocation
+        function getLocation() {
+            const locationInfo = document.getElementById('locationInfo');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        document.getElementById('latitude').value = lat;
+                        document.getElementById('longitude').value = lng;
+                        
+                        locationInfo.className = 'location-info success';
+                        locationInfo.textContent = `✓ Location captured: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    },
+                    function(error) {
+                        console.error('Geolocation error:', error);
+                        locationInfo.className = 'location-info error';
+                        locationInfo.textContent = '❌ Could not capture location. Please enable location access.';
+                    }
+                );
+            } else {
+                locationInfo.className = 'location-info error';
+                locationInfo.textContent = '❌ Geolocation is not supported by this browser.';
+            }
+        }
+        
+        // Submit attendance
+        function submitAttendance(event) {
+            event.preventDefault();
+            
+            const data = {
+                student_id: document.getElementById('studentId').value,
+                name: document.getElementById('name').value,
+                roll_number: document.getElementById('rollNumber').value,
+                branch: document.getElementById('branch').value,
+                class: document.getElementById('class').value,
+                latitude: document.getElementById('latitude').value,
+                longitude: document.getElementById('longitude').value
+            };
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            fetch('/api/record-attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    document.getElementById('successMessage').style.display = 'block';
+                    document.getElementById('attendanceForm').style.display = 'none';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    alert('Error: ' + result.error);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Attendance';
+                }
+            })
+            .catch(error => {
+                alert('Error submitting attendance: ' + error);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Attendance';
+            });
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', getLocation);
+    </script>
+</body>
+</html>
